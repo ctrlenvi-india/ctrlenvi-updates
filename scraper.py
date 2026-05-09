@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import datetime
+import json
 # This line hides the messy warning messages about security
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -10,7 +11,7 @@ portals = {
     "Battery": "https://eprbattery.cpcb.gov.in/",
     "E-Waste": "https://eprewaste.cpcb.gov.in/"
 }
-
+updates = []
 def scrape_cpcb():
     for name, url in portals.items():
         try:
@@ -51,3 +52,10 @@ try:
     print("File pushed successfully!")
 except Exception as e:
     print(f"Error pushing to Git: {e}")
+# --- This part must be at the very bottom of scraper.py ---
+
+# This line takes the 'updates' list and writes it into the JSON file
+with open('epr-data.json', 'w') as f:
+    json.dump(updates, f, indent=4)
+
+print("Process Complete: epr-data.json has been updated.")
