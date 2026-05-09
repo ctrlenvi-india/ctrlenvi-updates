@@ -1,61 +1,48 @@
 import requests
 from bs4 import BeautifulSoup
-import datetime
 import json
-# This line hides the messy warning messages about security
 import urllib3
+
+# This helps ignore SSL errors if the CPCB site is being difficult
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+updates = []
 
 portals = {
     "Plastic": "https://eprplastic.cpcb.gov.in/",
     "Battery": "https://eprbattery.cpcb.gov.in/",
-    "E-Waste": "https://eprewaste.cpcb.gov.in/"
+    "E-waste": "https://eprewaste.cpcb.gov.in/"
 }
-updates = []
-def scrape_cpcb():
-    for name, url in portals.items():
-        try:
-            # We added 'verify=False' to skip the security error
-            response = requests.get(url, timeout=15, verify=False)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Looking for the news items
-            news_items = soup.find_all('marquee')
-            
-            if not news_items:
-                print(f"[{name}] Connected! But no news found on the marquee.")
-            
-            for item in news_items:
-                print(f"[{name}] {datetime.date.today()}: {item.text.strip()}")
-                
-        except Exception as e:
-            print(f"Error checking {name}: {e}")
 
-if __name__ == "__main__":
-    scrape_cpcb()
-    import json
-import subprocess
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
 
-# ... (your existing scraping logic) ...
+for name, url in portals.items():
+    try:
+        response = requests.get(url, headers=headers, verify=False, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Look for links inside 'marquee' tags or 'news' sections
+        links = soup.find_all('a')
+        
+        for link in links:
+            text = link.get_text().strip()
+            href = link.get('href', '#')
+            
+            # This looks for anything related to notices or new guidelines
+            if len(text) > 10: # Avoid tiny buttons or single words
+                updates.append({
+                    "title": f"[{name}] {text}",
+                    "link": href if href.startswith('http') else url + href,
+                    "date": "Latest"
+                })
+    except Exception as e:
+        print(f"Error on {name}: {e}")
 
-# 1. Save the data to the file
+# Save the results (Only if we found something, to avoid empty [] )
+if not updates:
+    updates.append({"title": "Check CPCB Portal for latest guidelines", "link": "https://cpcb.nic.in/", "date": "Live"})
+
 with open('epr-data.json', 'w') as f:
     json.dump(updates, f, indent=4)
-
-# 2. Tell the Bot to push this file back to your repo
-try:
-    subprocess.run(["git", "config", "user.name", "scraper-bot"], check=True)
-    subprocess.run(["git", "config", "user.email", "bot@ctrlenvi.com"], check=True)
-    subprocess.run(["git", "add", "epr-data.json"], check=True)
-    subprocess.run(["git", "commit", "-m", "Auto-update EPR data"], check=True)
-    subprocess.run(["git", "push"], check=True)
-    print("File pushed successfully!")
-except Exception as e:
-    print(f"Error pushing to Git: {e}")
-# --- This part must be at the very bottom of scraper.py ---
-
-# This line takes the 'updates' list and writes it into the JSON file
-with open('epr-data.json', 'w') as f:
-    json.dump(updates, f, indent=4)
-
-print("Process Complete: epr-data.json has been updated.")
