@@ -32,3 +32,22 @@ def scrape_cpcb():
 
 if __name__ == "__main__":
     scrape_cpcb()
+    import json
+import subprocess
+
+# ... (your existing scraping logic) ...
+
+# 1. Save the data to the file
+with open('epr-data.json', 'w') as f:
+    json.dump(updates, f, indent=4)
+
+# 2. Tell the Bot to push this file back to your repo
+try:
+    subprocess.run(["git", "config", "user.name", "scraper-bot"], check=True)
+    subprocess.run(["git", "config", "user.email", "bot@ctrlenvi.com"], check=True)
+    subprocess.run(["git", "add", "epr-data.json"], check=True)
+    subprocess.run(["git", "commit", "-m", "Auto-update EPR data"], check=True)
+    subprocess.run(["git", "push"], check=True)
+    print("File pushed successfully!")
+except Exception as e:
+    print(f"Error pushing to Git: {e}")
