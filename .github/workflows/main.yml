@@ -18,3 +18,12 @@ jobs:
         run: pip install requests beautifulsoup4
       - name: Run Scraper
         run: python scraper.py
+- name: Run Scraper
+        run: python scraper.py
+      - name: Commit and Push
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add epr-data.json
+          git commit -m "Update EPR data" || echo "No changes to commit"
+          git push
