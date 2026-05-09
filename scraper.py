@@ -2,11 +2,16 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import urllib3
+from datetime import datetime
 
-# This helps ignore SSL errors if the CPCB site is being difficult
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-updates = []
+# 1. Initialize the list with a "Last Checked" entry for CtrlEnvi
+updates = [{
+    "title": f"System Live: Last Checked on {datetime.now().strftime('%d %b %Y')}",
+    "link": "https://ctrlenvi.com",
+    "date": "Today"
+}]
 
 portals = {
     "Plastic": "https://eprplastic.cpcb.gov.in/",
@@ -14,35 +19,31 @@ portals = {
     "E-waste": "https://eprewaste.cpcb.gov.in/"
 }
 
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
+headers = {'User-Agent': 'Mozilla/5.0'}
 
 for name, url in portals.items():
     try:
-        response = requests.get(url, headers=headers, verify=False, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        r = requests.get(url, headers=headers, verify=False, timeout=15)
+        soup = BeautifulSoup(r.text, 'html.parser')
         
-        # Look for links inside 'marquee' tags or 'news' sections
-        links = soup.find_all('a')
-        
-        for link in links:
+        # Look for ANY link that contains common EPR keywords
+        all_links = soup.find_all('a')
+        for link in all_links:
             text = link.get_text().strip()
-            href = link.get('href', '#')
+            href = link.get('href', '')
             
-            # This looks for anything related to notices or new guidelines
-            if len(text) > 10: # Avoid tiny buttons or single words
-                updates.append({
-                    "title": f"[{name}] {text}",
-                    "link": href if href.startswith('http') else url + href,
-                    "date": "Latest"
-                })
+            # Keywords to look for
+            keywords = ["Notice", "Guideline", "Registration", "Portal", "EPR", "Extension", "Public"]
+            if any(key.lower() in text.lower() for key in keywords):
+                if len(text) > 15: # Ensure it's a real headline
+                    updates.append({
+                        "title": f"[{name}] {text[:80]}...",
+                        "link": href if href.startswith('http') else url + href,
+                        "date": "NEW"
+                    })
     except Exception as e:
-        print(f"Error on {name}: {e}")
+        print(f"Skipping {name} due to connection.")
 
-# Save the results (Only if we found something, to avoid empty [] )
-if not updates:
-    updates.append({"title": "Check CPCB Portal for latest guidelines", "link": "https://cpcb.nic.in/", "date": "Live"})
-
+# Save the file
 with open('epr-data.json', 'w') as f:
     json.dump(updates, f, indent=4)
